@@ -1,0 +1,276 @@
+{
+    "0": {
+        "text": "Dear Trader, The US Thanksgiving Holidays fall on 27 28 November 2025, bringing temporary changes to the trading schedule.",
+        "duration": 9.524999999999999,
+        "start": 0.3,
+        "end": 9.825,
+        "words": [
+            {
+                "word": "Dear",
+                "start": 0.3,
+                "end": 0.512
+            },
+            {
+                "word": "Trader",
+                "start": 0.512,
+                "end": 1.15
+            },
+            {
+                "word": ",",
+                "start": 1.15,
+                "end": 1.25
+            },
+            {
+                "word": "The",
+                "start": 1.25,
+                "end": 1.387
+            },
+            {
+                "word": "US",
+                "start": 1.387,
+                "end": 1.863
+            },
+            {
+                "word": "Thanksgiving",
+                "start": 1.863,
+                "end": 2.5
+            },
+            {
+                "word": "Holidays",
+                "start": 2.5,
+                "end": 3.087
+            },
+            {
+                "word": "fall",
+                "start": 3.087,
+                "end": 3.45
+            },
+            {
+                "word": "on",
+                "start": 3.45,
+                "end": 3.625
+            },
+            {
+                "word": "27",
+                "start": 3.625,
+                "end": 4.25
+            },
+            {
+                "word": "28",
+                "start": 4.25,
+                "end": 4.862
+            },
+            {
+                "word": "November",
+                "start": 4.862,
+                "end": 5.35
+            },
+            {
+                "word": "2025",
+                "start": 5.35,
+                "end": 6.6
+            },
+            {
+                "word": ",",
+                "start": 6.6,
+                "end": 6.725
+            },
+            {
+                "word": "bringing",
+                "start": 6.725,
+                "end": 7.088
+            },
+            {
+                "word": "temporary",
+                "start": 7.088,
+                "end": 7.638
+            },
+            {
+                "word": "changes",
+                "start": 7.638,
+                "end": 8.15
+            },
+            {
+                "word": "to",
+                "start": 8.15,
+                "end": 8.238
+            },
+            {
+                "word": "the",
+                "start": 8.238,
+                "end": 8.325
+            },
+            {
+                "word": "trading",
+                "start": 8.325,
+                "end": 8.725
+            },
+            {
+                "word": "schedule",
+                "start": 8.725,
+                "end": 9.65
+            },
+            {
+                "word": ".",
+                "start": 9.65,
+                "end": 9.825
+            }
+        ]
+    },
+    "1": {
+        "text": "Some instruments may be unavailable, while others may operate on reduced hours.",
+        "duration": 5.411999999999999,
+        "start": 9.65,
+        "end": 15.062,
+        "words": [
+            {
+                "word": "Some",
+                "start": 9.825,
+                "end": 10.1
+            },
+            {
+                "word": "instruments",
+                "start": 10.1,
+                "end": 10.675
+            },
+            {
+                "word": "may",
+                "start": 10.675,
+                "end": 10.875
+            },
+            {
+                "word": "be",
+                "start": 10.875,
+                "end": 11.062
+            },
+            {
+                "word": "unavailable",
+                "start": 11.062,
+                "end": 11.975
+            },
+            {
+                "word": ",",
+                "start": 11.975,
+                "end": 12.075
+            },
+            {
+                "word": "while",
+                "start": 12.075,
+                "end": 12.3
+            },
+            {
+                "word": "others",
+                "start": 12.3,
+                "end": 12.675
+            },
+            {
+                "word": "may",
+                "start": 12.675,
+                "end": 12.887
+            },
+            {
+                "word": "operate",
+                "start": 12.887,
+                "end": 13.425
+            },
+            {
+                "word": "on",
+                "start": 13.425,
+                "end": 13.575
+            },
+            {
+                "word": "reduced",
+                "start": 13.575,
+                "end": 14.05
+            },
+            {
+                "word": "hours",
+                "start": 14.05,
+                "end": 14.925
+            },
+            {
+                "word": ".",
+                "start": 14.925,
+                "end": 15.062
+            }
+        ]
+    },
+    "2": {
+        "text": "To stay prepared, we recommend reviewing the full schedule ahead of time.",
+        "duration": 4.625,
+        "start": 14.925,
+        "end": 19.55,
+        "words": [
+            {
+                "word": "To",
+                "start": 15.062,
+                "end": 15.2
+            },
+            {
+                "word": "stay",
+                "start": 15.2,
+                "end": 15.475
+            },
+            {
+                "word": "prepared",
+                "start": 15.475,
+                "end": 16.225
+            },
+            {
+                "word": ",",
+                "start": 16.225,
+                "end": 16.325
+            },
+            {
+                "word": "we",
+                "start": 16.325,
+                "end": 16.475
+            },
+            {
+                "word": "recommend",
+                "start": 16.475,
+                "end": 17.05
+            },
+            {
+                "word": "reviewing",
+                "start": 17.05,
+                "end": 17.488
+            },
+            {
+                "word": "the",
+                "start": 17.488,
+                "end": 17.625
+            },
+            {
+                "word": "full",
+                "start": 17.625,
+                "end": 17.913
+            },
+            {
+                "word": "schedule",
+                "start": 17.913,
+                "end": 18.4
+            },
+            {
+                "word": "ahead",
+                "start": 18.4,
+                "end": 18.613
+            },
+            {
+                "word": "of",
+                "start": 18.613,
+                "end": 18.7
+            },
+            {
+                "word": "time",
+                "start": 18.7,
+                "end": 19.4
+            },
+            {
+                "word": ".",
+                "start": 19.4,
+                "end": 19.55
+            }
+        ]
+    }
+}

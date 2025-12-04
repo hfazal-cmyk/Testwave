@@ -24,7 +24,7 @@ CLIENT_USERNAME = "rental_client_1"
 CLIENT_PASSWORD = "StrongPassword456"
 
 # 3. Expiration: Tareekh ko is format mein set karein: Din-Mahina-Saal
-EXPIRY_DATE_STR = "25-12-2025" 
+EXPIRY_DATE_STR = "29-12-2025" 
 # ======================================================================
 
 css_hider = """

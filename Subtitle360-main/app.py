@@ -1,49 +1,43 @@
 # ====================================================================
-# === 1. SECURITY IMPORTS & CONSTANTS ADDED (Start of File) ===
+# === 1. IP, USERNAME, PASSWORD CONSTANTS ADDED (Start of File) ===
 # ====================================================================
-from datetime import date
-import shutil # Import moved to top for consistency
-import os # Import moved to top for consistency
-from pydub import AudioSegment # Import moved to top for consistency
-from pydub.silence import split_on_silence # Import moved to top for consistency
-
-# Constants for Authentication and Expiry Date
+# Constants for Authentication and IP Restriction
 CLIENT_USERNAME = "user" # APNI PASAND KA USERNAME RAKHEN
 CLIENT_PASSWORD = "123" # APNI PASAND KA PASSWORD RAKHEN
-# Set the expiration date: Year, Month, Day
-# Example: December 31, 2025
-EXPIRY_DATE = date(2025, 12, 31) 
+IP_FILE = "allowed_ip.txt" 
 # ====================================================================
 
 # Initalize a pipeline
 from kokoro import KPipeline
 # from IPython.display import display, Audio
 # import soundfile as sf
-# import os # Already moved to top
+import os
 from huggingface_hub import list_repo_files
 import uuid
 import re 
 import gradio as gr
-# import shutil # Already moved to top
-import json # Import moved to top for consistency
-import click # Import moved to top for consistency
-
+import shutil
 
 # ====================================================================
-# === 2. custom_auth Function ADDED (For Gradio Login) ===
+# === 2. Simple custom_auth Function Added (Login Fix) ===
 # ====================================================================
 def custom_auth(username, password):
-    """Checks if the provided username and password match the constants."""
+    """
+    Gradio ke default auth ke liye, yeh function sirf username aur password leta hai.
+    IP check ab KOKORO_TTS_API function ke andar hoga.
+    """
     return username == CLIENT_USERNAME and password == CLIENT_PASSWORD
 # ====================================================================
 
 
+# === HIDING GITHUB FOOTER & LINKS (Aapki request ke mutabiq) ===
 css_hider = """
-/* Footer ko mukammal taur par chhipane ke liye */
+/* Gradio ka footer aur 'Made with Gradio' chhipane ke liye */
 footer { visibility: hidden !important; height: 0px !important; }
 /* Container ki height adjust karne ke liye */
 .gradio-container { min-height: 0px !important; }
 """
+# =============================================================
 
 #translate langauge 
 from deep_translator import GoogleTranslator
@@ -130,7 +124,7 @@ def create_audio_dir():
         print(f"Directory already exists: {audio_dir}")
     return audio_dir
 
-# import re # Already at top
+import re
 
 def clean_text(text):
     # Define replacement rules
@@ -189,8 +183,8 @@ def tts_file_name(text,language):
 # import soundfile as sf
 import numpy as np
 import wave
-# from pydub import AudioSegment # Already at top
-# from pydub.silence import split_on_silence # Already at top
+from pydub import AudioSegment
+from pydub.silence import split_on_silence
 
 def remove_silence_function(file_path,minimum_silence=50):
     # Extract file name and format from the provided path
@@ -315,7 +309,7 @@ def write_word_srt(word_level_timestamps, output_file="word.srt", skip_punctuati
             f.write(f"{index}\n{start_srt} --> {end_srt}\n{word}\n\n")
             index += 1  # Increment subtitle number
 
-# import string # Already imported
+import string
 
 
 def split_line_by_char_limit(text, max_chars=30):
@@ -412,8 +406,8 @@ def write_sentence_srt(word_level_timestamps, output_file="subtitles.srt", max_w
     # print(f"SRT file '{output_file}' created successfully!")
 
 
-# import json # Already at top
-# import re # Already at top
+import json
+import re
 
 def fix_punctuation(text):
     # Remove spaces before punctuation marks (., ?, !, ,)
@@ -516,22 +510,68 @@ def make_json(word_timestamps, json_file_name):
     return json_file_name
 
 
-# import os # Already at top
-
 def modify_filename(save_path: str, prefix: str = ""):
     directory, filename = os.path.split(save_path)
     name, ext = os.path.splitext(filename)
     new_filename = f"{prefix}{name}{ext}"
     return os.path.join(directory, new_filename)
-# import shutil # Already at top
+
 def save_current_data():
     if os.path.exists("./last"):
         shutil.rmtree("./last")
     os.makedirs("./last",exist_ok=True)
     
-      
-def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05):
-    if translate_text:    
+# ====================================================================
+# === 3. KOKORO_TTS_API Function (IP Restriction aur Error Fix ke saath) ===
+# ==================================================================== 
+def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05, request: gr.Request = None):
+    # 'request: gr.Request = None' function signature mein hona hi error fix hai.
+    
+    # === IP/Security Check Start ===
+    global IP_FILE 
+    
+    if request is None:
+        gr.Warning("Error: Could not retrieve client information. Access denied.", duration=5)
+        return None, None, None, None, None
+
+    # IP address ko mazbooti se hasil karna
+    client_ip = request.headers.get("x-forwarded-for", "UNKNOWN")
+    if client_ip == "UNKNOWN":
+        client_ip = request.client.host if request.client else "UNKNOWN"
+        
+    if client_ip == "UNKNOWN":
+        gr.Warning("Error: IP address could not be determined. Access denied.", duration=5)
+        return None, None, None, None, None
+        
+    allowed_ip = ""
+    # Check IP file
+    if os.path.exists(IP_FILE):
+        try:
+            with open(IP_FILE, "r") as f:
+                allowed_ip = f.read().strip()
+        except Exception:
+            gr.Warning("Error reading IP file. Access denied.", duration=5)
+            return None, None, None, None, None
+
+    if not allowed_ip:
+        # Pehli baar: IP file nahi hai, is IP ko allowed banao
+        try:
+            with open(IP_FILE, "w") as f:
+                f.write(client_ip)
+            gr.Info(f"First generation successful. Your IP ({client_ip}) is now registered for this session.", duration=5)
+        except Exception:
+            gr.Warning("Error writing IP file. Access denied.", duration=5)
+            return None, None, None, None, None
+
+    elif client_ip != allowed_ip:
+        # Saved IP se match nahi hua, access block
+        gr.Warning(f"Access Denied: Tool is already registered to another IP ({allowed_ip}). Your IP is {client_ip}.", duration=10)
+        return None, None, None, None, None
+        
+    # === IP/Security Check End ===
+    
+    # ORIGINAL TTS CODE CONTINUES
+    if translate_text:      
         text=bulk_translate(text, Language, chunk_size=500)
     save_path,timestamps=generate_and_save_audio(text=text, Language=Language,voice=voice, speed=speed,remove_silence=remove_silence,keep_silence_up_to=keep_silence_up_to)
     if remove_silence==False:
@@ -549,10 +589,9 @@ def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,t
             shutil.copy(normal_srt, "./last/")
             shutil.copy(json_file, "./last/")
             return save_path,save_path,word_level_srt,normal_srt,json_file
-    return save_path,save_path,None,None,None    
+    return save_path,save_path,None,None,None
+# ==================================================================== 
     
-    
-
 
 def ui():
     def toggle_autoplay(autoplay):
@@ -561,8 +600,8 @@ def ui():
     
     
     with gr.Blocks() as demo:
-        # gr.Markdown("<center><h1 style='font-size: 40px;'>KOKORO TTS</h1></center>")  # Larger title with CSS
-        # gr.Markdown("[Install on Your Local System](https://github.com/NeuralFalconYT/kokoro_v1)")
+        # gr.Markdown("<center><h1 style='font-size: 40px;'>KOKORO TTS</h1></center>")  # Title
+        # GitHub/Install Link yahan se hata diya gaya hai
         lang_list = ['American English', 'British English', 'Hindi', 'Spanish', 'French', 'Italian', 'Brazilian Portuguese', 'Japanese', 'Mandarin Chinese']
         voice_names = get_voice_names("hexgrad/Kokoro-82M")
 
@@ -583,16 +622,13 @@ def ui():
                     speed = gr.Slider(minimum=0.25, maximum=2, value=1, step=0.1, label='⚡️Speed', info='Adjust the speaking speed')
                     translate_text = gr.Checkbox(value=False, label='🌐 Translate Text to Selected Language')
                     remove_silence = gr.Checkbox(value=False, label='✂️ Remove Silence ')
-                    # ADDED missing keep_silence_up_to slider as it was missing from the user's provided UI code, but used in KOKORO_TTS_API
+                    # === New UI element for keep_silence_up_to added ===
                     keep_silence_up_to = gr.Slider(minimum=0.01, maximum=0.5, value=0.05, step=0.01, label='Quiet Gap Size (Seconds)', info='How long of a silence gap to keep when removing silence.')
-                    # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                    # ===================================================
 
             with gr.Column():
                 audio = gr.Audio(interactive=False, label='🔊 Output Audio', autoplay=True)
                 audio_file = gr.File(label='📥 Download Audio')
-                # word_level_srt_file = gr.File(label='Download Word-Level SRT')
-                # srt_file = gr.File(label='Download Sentence-Level SRT')
-                # sentence_duration_file = gr.File(label='Download Sentence Duration JSON')
                 with gr.Accordion('🎬 Autoplay, Subtitle, Timestamp', open=False):
                     autoplay = gr.Checkbox(value=True, label='▶️ Autoplay')
                     autoplay.change(toggle_autoplay, inputs=[autoplay], outputs=[audio])
@@ -600,7 +636,8 @@ def ui():
                     srt_file = gr.File(label='📜 Download Sentence-Level SRT')
                     sentence_duration_file = gr.File(label='⏳ Download Sentence Timestamp JSON')
 
-        # NOTE: Updated to include keep_silence_up_to in input list to match KOKORO_TTS_API signature
+        # === 4. UI Bindings Corrected (Fix for AttributeError: 'Request' object has no attribute '_id') ===
+        # Note: 'request' argument ko inputs list mein shamil nahi karna hai.
         inputs_list = [
             text, 
             language_name, 
@@ -608,12 +645,12 @@ def ui():
             speed, 
             translate_text, 
             remove_silence, 
-            keep_silence_up_to # ADDED
+            keep_silence_up_to
         ]
         
-        # NOTE: Updated to include keep_silence_up_to in input list to match KOKORO_TTS_API signature
         text.submit(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
         generate_btn.click(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
+        # =====================================================================
 
         # Add examples to the interface
         
@@ -645,45 +682,34 @@ def tutorial():
     - **"m_"**: Male
     """
     with gr.Blocks() as demo2:
-        # gr.Markdown("[Install on Your Local System](https://github.com/NeuralFalconYT/kokoro_v1)")
+        # gr.Markdown("[Install on Your Local System](https://github.com/NeuralFalconYT/kokoro_v1)") # Link yahan se bhi hata diya gaya hai
         gr.Markdown(explanation)  # Display the explanation
     return demo2
 
 
-# ====================================================================
-# === 3. Expiration Check Function ADDED ===
-# ====================================================================
-def check_expiration():
-    """Checks if the application date has passed the EXPIRY_DATE."""
-    if date.today() > EXPIRY_DATE:
-        print("\n\n#####################################################")
-        print(f"!!! WARNING: The application expired on {EXPIRY_DATE}. !!!")
-        print("#####################################################\n")
-        return True # Expired
-    return False # Not expired
-# ====================================================================
 
-
-# import click # Already at top
+import click
 @click.command()
 @click.option("--debug", is_flag=True, default=False, help="Enable debug mode.")
 @click.option("--share", is_flag=True, default=False, help="Enable sharing of the interface.")
 def main(debug, share):
-    
-    # === Expiration Check APPLIED ===
-    if check_expiration():
-        print("Application is expired and will not launch.")
-        return
-    # ================================
-    
     demo1 = ui()
     demo2 = tutorial()
     
+    # CSS HIDER lagaya gaya hai takay footer aur links chhip jaaein
     demo = gr.TabbedInterface([demo1, demo2],["Text To Speech","Voice Character Guide"],title="Long Touch Generator 03060914996", css=css_hider)
     
-    # === Login (auth) Applied ===
-    demo.queue().launch(debug=debug, share=share, show_api=False, auth=custom_auth)
-    # ============================
+    # ====================================================================
+    # === 5. Launch Command (IP restriction ke liye custom_auth zaroori hai) ===
+    # ====================================================================
+    demo.queue().launch(
+        debug=debug, 
+        share=share, 
+        show_api=False, 
+        auth=custom_auth # custom_auth function use ho raha hai login ke liye
+    )
+    # ====================================================================
+
 
 
 # Initialize default pipeline

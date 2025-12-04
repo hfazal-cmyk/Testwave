@@ -34,19 +34,26 @@ footer { visibility: hidden !important; height: 0px !important; }
 
 # Yeh function har login ki koshish par chalega
 def custom_auth(username, password, request: Request):
-    client_ip = request.headers.get("x-forwarded-for") or request.client.host
-
+    # IP address ko zyada mazbooti se hasil karna
+    client_ip = request.headers.get("x-forwarded-for", "UNKNOWN")
+    if client_ip == "UNKNOWN":
+        client_ip = request.client.host
+    
+    # Simple Authentication Check
     if username == CLIENT_USERNAME and password == CLIENT_PASSWORD:
         
         if not os.path.exists(IP_FILE):
+            # Pehli baar: Agar file maujood nahi hai to, is IP ko allowed IP banao
             try:
                 with open(IP_FILE, "w") as f:
                     f.write(client_ip)
                 return True
             except Exception:
+                # Agar file save na ho paye to access deny
                 return False
         
         else:
+            # Baad ki koshishen: Saved IP se match karo
             try:
                 with open(IP_FILE, "r") as f:
                     allowed_ip = f.read().strip()
@@ -56,9 +63,10 @@ def custom_auth(username, password, request: Request):
             if client_ip == allowed_ip:
                 return True
             else:
-                return False 
+                # IP Match nahi hua! Access block.
+                return False
     
-    return False
+    return False # Basic Auth failed
 
 
 # translate langauge

@@ -1,16 +1,9 @@
 # ====================================================================
-# === 1. IP, USERNAME, PASSWORD CONSTANTS ADDED (Start of File) ===
-# ====================================================================
-# Constants for Authentication and IP Restriction
-CLIENT_USERNAME = "user" # APNI PASAND KA USERNAME RAKHEN
-CLIENT_PASSWORD = "123" # APNI PASAND KA PASSWORD RAKHEN
-IP_FILE = "allowed_ip.txt" 
+# === 1. IP, USERNAME, PASSWORD CONSTANTS REMOVED (Start of File) ===
 # ====================================================================
 
 # Initalize a pipeline
 from kokoro import KPipeline
-# from IPython.display import display, Audio
-# import soundfile as sf
 import os
 from huggingface_hub import list_repo_files
 import uuid
@@ -19,23 +12,18 @@ import gradio as gr
 import shutil
 
 # ====================================================================
-# === 2. Simple custom_auth Function Added (Login Fix) ===
-# ====================================================================
-def custom_auth(username, password):
-    """
-    Gradio ke default auth ke liye, yeh function sirf username aur password leta hai.
-    IP check ab KOKORO_TTS_API function ke andar hoga.
-    """
-    return username == CLIENT_USERNAME and password == CLIENT_PASSWORD
+# === 2. custom_auth Function REMOVED ===
 # ====================================================================
 
 
+# === HIDING GITHUB FOOTER & LINKS ===
 css_hider = """
-/* Footer ko mukammal taur par chhipane ke liye */
+/* Gradio ka footer aur 'Made with Gradio' chhipane ke liye */
 footer { visibility: hidden !important; height: 0px !important; }
 /* Container ki height adjust karne ke liye */
 .gradio-container { min-height: 0px !important; }
 """
+# ====================================
 
 #translate langauge 
 from deep_translator import GoogleTranslator
@@ -520,52 +508,10 @@ def save_current_data():
     os.makedirs("./last",exist_ok=True)
     
 # ====================================================================
-# === 3. KOKORO_TTS_API Updated (IP Restriction Logic) - NO CHANGE ===
+# === 3. KOKORO_TTS_API Function (IP Restriction Removed, Error Fix Kept) ===
 # ==================================================================== 
 def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05, request: gr.Request = None):
-    
-    # === IP/Security Check Start ===
-    global IP_FILE # Ensure IP_FILE is accessible
-    
-    if request is None:
-        gr.Warning("Error: Could not retrieve client information. Access denied.", duration=5)
-        return None, None, None, None, None
-
-    # IP address ko mazbooti se hasil karna
-    client_ip = request.headers.get("x-forwarded-for", "UNKNOWN")
-    if client_ip == "UNKNOWN":
-        client_ip = request.client.host if request.client else "UNKNOWN"
-        
-    if client_ip == "UNKNOWN":
-        gr.Warning("Error: IP address could not be determined. Access denied.", duration=5)
-        return None, None, None, None, None
-        
-    allowed_ip = ""
-    # Check IP file
-    if os.path.exists(IP_FILE):
-        try:
-            with open(IP_FILE, "r") as f:
-                allowed_ip = f.read().strip()
-        except Exception:
-            gr.Warning("Error reading IP file. Access denied.", duration=5)
-            return None, None, None, None, None
-
-    if not allowed_ip:
-        # Pehli baar: IP file nahi hai, is IP ko allowed banao
-        try:
-            with open(IP_FILE, "w") as f:
-                f.write(client_ip)
-            gr.Info(f"First generation successful. Your IP ({client_ip}) is now registered for this session.", duration=5)
-        except Exception:
-            gr.Warning("Error writing IP file. Access denied.", duration=5)
-            return None, None, None, None, None
-
-    elif client_ip != allowed_ip:
-        # Saved IP se match nahi hua, access block
-        gr.Warning(f"Access Denied: Tool is already registered to another IP ({allowed_ip}). Your IP is {client_ip}.", duration=10)
-        return None, None, None, None, None
-        
-    # === IP/Security Check End ===
+    # 'request: gr.Request = None' yahan mojood hai magar isay use nahi kiya gaya, yeh Gradio error fix ke liye zaroori hai.
     
     # ORIGINAL TTS CODE CONTINUES
     if translate_text:      
@@ -597,8 +543,8 @@ def ui():
     
     
     with gr.Blocks() as demo:
-        # gr.Markdown("<center><h1 style='font-size: 40px;'>KOKORO TTS</h1></center>")  # Larger title with CSS
-        # gr.Markdown("[Install on Your Local System](https://github.com/NeuralFalconYT/kokoro_v1)")
+        # Title
+        # GitHub/Install Link chhipa diya gaya hai
         lang_list = ['American English', 'British English', 'Hindi', 'Spanish', 'French', 'Italian', 'Brazilian Portuguese', 'Japanese', 'Mandarin Chinese']
         voice_names = get_voice_names("hexgrad/Kokoro-82M")
 
@@ -610,7 +556,7 @@ def ui():
                     language_name = gr.Dropdown(lang_list, label="🌍 Select Language", value=lang_list[0])
 
                 with gr.Row():
-                    voice_name = gr.Dropdown(voice_names, label="🎙️ Choose VoicePack", value='af_heart')#voice_names[0])
+                    voice_name = gr.Dropdown(voice_names, label="🎙️ Choose VoicePack", value='af_heart')
 
                 with gr.Row():
                     generate_btn = gr.Button('🚀 Generate', variant='primary')
@@ -619,16 +565,11 @@ def ui():
                     speed = gr.Slider(minimum=0.25, maximum=2, value=1, step=0.1, label='⚡️Speed', info='Adjust the speaking speed')
                     translate_text = gr.Checkbox(value=False, label='🌐 Translate Text to Selected Language')
                     remove_silence = gr.Checkbox(value=False, label='✂️ Remove Silence ')
-                    # === New UI element for keep_silence_up_to added ===
                     keep_silence_up_to = gr.Slider(minimum=0.01, maximum=0.5, value=0.05, step=0.01, label='Quiet Gap Size (Seconds)', info='How long of a silence gap to keep when removing silence.')
-                    # ===================================================
 
             with gr.Column():
                 audio = gr.Audio(interactive=False, label='🔊 Output Audio', autoplay=True)
                 audio_file = gr.File(label='📥 Download Audio')
-                # word_level_srt_file = gr.File(label='Download Word-Level SRT')
-                # srt_file = gr.File(label='Download Sentence-Level SRT')
-                # sentence_duration_file = gr.File(label='Download Sentence Duration JSON')
                 with gr.Accordion('🎬 Autoplay, Subtitle, Timestamp', open=False):
                     autoplay = gr.Checkbox(value=True, label='▶️ Autoplay')
                     autoplay.change(toggle_autoplay, inputs=[autoplay], outputs=[audio])
@@ -636,8 +577,7 @@ def ui():
                     srt_file = gr.File(label='📜 Download Sentence-Level SRT')
                     sentence_duration_file = gr.File(label='⏳ Download Sentence Timestamp JSON')
 
-        # === 4. UI Bindings Corrected (gr.Request Removed from inputs list) ===
-        # Note: request: gr.Request = None function signature mein mojood hai, isliye isay inputs list mein shamil nahi karna.
+        # === 4. UI Bindings Corrected (Inputs List Mein sirf Components Hain) ===
         inputs_list = [
             text, 
             language_name, 
@@ -682,7 +622,6 @@ def tutorial():
     - **"m_"**: Male
     """
     with gr.Blocks() as demo2:
-        # gr.Markdown("[Install on Your Local System](https://github.com/NeuralFalconYT/kokoro_v1)")
         gr.Markdown(explanation)  # Display the explanation
     return demo2
 
@@ -696,18 +635,22 @@ def main(debug, share):
     demo1 = ui()
     demo2 = tutorial()
     
+    # CSS HIDER applied
     demo = gr.TabbedInterface([demo1, demo2],["Text To Speech","Voice Character Guide"],title="Long Touch Generator 03060914996", css=css_hider)
     
-    # ====================================================================
-    # === 5. Launch Command Updated (auth=custom_auth Added) - NO CHANGE ===
-    # ====================================================================
+    # === 5. Launch Command (Custom Auth and IP logic removed) ===
     demo.queue().launch(
         debug=debug, 
         share=share, 
-        show_api=False, 
-        auth=custom_auth
+        show_api=False # Ab koi 'auth' nahi hai, tool seedha chalega.
     )
-    # ====================================================================
-    # demo.queue().launch(debug=debug, share=share, server_port=9000)
-    # Run on local network
-    # laptop_ip="
+    # =============================================================
+
+
+
+# Initialize default pipeline
+last_used_language = "a"
+pipeline = KPipeline(lang_code=last_used_language)
+temp_folder = create_audio_dir()
+if __name__ == "__main__":
+    main()

@@ -520,7 +520,7 @@ def save_current_data():
     os.makedirs("./last",exist_ok=True)
     
 # ====================================================================
-# === 3. KOKORO_TTS_API Updated (IP Restriction Logic) ===
+# === 3. KOKORO_TTS_API Updated (IP Restriction Logic) - NO CHANGE ===
 # ==================================================================== 
 def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05, request: gr.Request = None):
     
@@ -636,13 +636,21 @@ def ui():
                     srt_file = gr.File(label='📜 Download Sentence-Level SRT')
                     sentence_duration_file = gr.File(label='⏳ Download Sentence Timestamp JSON')
 
-        # === 4. UI Bindings Updated (gr.Request Added) ===
-        request_obj = gr.Request()
-        inputs_list = [text, language_name, voice_name, speed, translate_text, remove_silence, keep_silence_up_to, request_obj]
+        # === 4. UI Bindings Corrected (gr.Request Removed from inputs list) ===
+        # Note: request: gr.Request = None function signature mein mojood hai, isliye isay inputs list mein shamil nahi karna.
+        inputs_list = [
+            text, 
+            language_name, 
+            voice_name, 
+            speed, 
+            translate_text, 
+            remove_silence, 
+            keep_silence_up_to
+        ]
         
         text.submit(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
         generate_btn.click(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
-        # =================================================
+        # =====================================================================
 
         # Add examples to the interface
         
@@ -691,7 +699,7 @@ def main(debug, share):
     demo = gr.TabbedInterface([demo1, demo2],["Text To Speech","Voice Character Guide"],title="Long Touch Generator 03060914996", css=css_hider)
     
     # ====================================================================
-    # === 5. Launch Command Updated (auth=custom_auth Added) ===
+    # === 5. Launch Command Updated (auth=custom_auth Added) - NO CHANGE ===
     # ====================================================================
     demo.queue().launch(
         debug=debug, 
@@ -702,15 +710,4 @@ def main(debug, share):
     # ====================================================================
     # demo.queue().launch(debug=debug, share=share, server_port=9000)
     # Run on local network
-    # laptop_ip="192.168.0.30"
-    # port=8080
-    # demo.queue().launch(debug=debug, share=share,server_name=laptop_ip,server_port=port)
-
-
-
-# Initialize default pipeline
-last_used_language = "a"
-pipeline = KPipeline(lang_code=last_used_language)
-temp_folder = create_audio_dir()
-if __name__ == "__main__":
-    main()
+    # laptop_ip="

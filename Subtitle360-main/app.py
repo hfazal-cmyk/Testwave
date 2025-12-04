@@ -1,13 +1,42 @@
+# ====================================================================
+# === 1. SECURITY IMPORTS & CONSTANTS ADDED (Start of File) ===
+# ====================================================================
+from datetime import date
+import shutil # Import moved to top for consistency
+import os # Import moved to top for consistency
+from pydub import AudioSegment # Import moved to top for consistency
+from pydub.silence import split_on_silence # Import moved to top for consistency
+
+# Constants for Authentication and Expiry Date
+CLIENT_USERNAME = "user" # APNI PASAND KA USERNAME RAKHEN
+CLIENT_PASSWORD = "123" # APNI PASAND KA PASSWORD RAKHEN
+# Set the expiration date: Year, Month, Day
+# Example: December 31, 2025
+EXPIRY_DATE = date(2025, 12, 31) 
+# ====================================================================
 
 # Initalize a pipeline
 from kokoro import KPipeline
 # from IPython.display import display, Audio
 # import soundfile as sf
-import os
+# import os # Already moved to top
 from huggingface_hub import list_repo_files
 import uuid
 import re 
 import gradio as gr
+# import shutil # Already moved to top
+import json # Import moved to top for consistency
+import click # Import moved to top for consistency
+
+
+# ====================================================================
+# === 2. custom_auth Function ADDED (For Gradio Login) ===
+# ====================================================================
+def custom_auth(username, password):
+    """Checks if the provided username and password match the constants."""
+    return username == CLIENT_USERNAME and password == CLIENT_PASSWORD
+# ====================================================================
+
 
 css_hider = """
 /* Footer ko mukammal taur par chhipane ke liye */
@@ -101,7 +130,7 @@ def create_audio_dir():
         print(f"Directory already exists: {audio_dir}")
     return audio_dir
 
-import re
+# import re # Already at top
 
 def clean_text(text):
     # Define replacement rules
@@ -129,9 +158,9 @@ def clean_text(text):
         r'[\U0001FA00-\U0001FA6F]|'  # Chess symbols
         r'[\U0001FA70-\U0001FAFF]|'  # Symbols and pictographs extended-A
         r'[\U00002702-\U000027B0]|'  # Dingbats
-        r'[\U0001F1E0-\U0001F1FF]'   # Flags (iOS)
+        r'[\U0001F1E0-\U0001F1FF]'  # Flags (iOS)
         r'', flags=re.UNICODE)
-  
+    
     text = emoji_pattern.sub(r'', text)
 
     # Remove multiple spaces and extra line breaks
@@ -143,9 +172,9 @@ def tts_file_name(text,language):
     global temp_folder
     # Remove all non-alphabetic characters and convert to lowercase
     text = re.sub(r'[^a-zA-Z\s]', '', text)  # Retain only alphabets and spaces
-    text = text.lower().strip()             # Convert to lowercase and strip leading/trailing spaces
-    text = text.replace(" ", "_")           # Replace spaces with underscores
-    language=language.replace(" ", "_").strip()   
+    text = text.lower().strip()              # Convert to lowercase and strip leading/trailing spaces
+    text = text.replace(" ", "_")            # Replace spaces with underscores
+    language=language.replace(" ", "_").strip()    
     # Truncate or handle empty text
     truncated_text = text[:20] if len(text) > 20 else text if len(text) > 0 else language
     
@@ -160,8 +189,8 @@ def tts_file_name(text,language):
 # import soundfile as sf
 import numpy as np
 import wave
-from pydub import AudioSegment
-from pydub.silence import split_on_silence
+# from pydub import AudioSegment # Already at top
+# from pydub.silence import split_on_silence # Already at top
 
 def remove_silence_function(file_path,minimum_silence=50):
     # Extract file name and format from the provided path
@@ -170,9 +199,9 @@ def remove_silence_function(file_path,minimum_silence=50):
     # Reading and splitting the audio file into chunks
     sound = AudioSegment.from_file(file_path, format=audio_format)
     audio_chunks = split_on_silence(sound,
-                                    min_silence_len=100,
-                                    silence_thresh=-45,
-                                    keep_silence=minimum_silence) 
+                                     min_silence_len=100,
+                                     silence_thresh=-45,
+                                     keep_silence=minimum_silence)  
     # Putting the file back together
     combined = AudioSegment.empty()
     for chunk in audio_chunks:
@@ -193,28 +222,28 @@ def generate_and_save_audio(text, Language="American English",voice="af_bella", 
         wav_file.setsampwidth(2)  # 2 bytes per sample (16-bit audio)
         wav_file.setframerate(24000)  # Sample rate
         for i, result in enumerate(generator):
-          gs = result.graphemes # str
+            gs = result.graphemes # str
         #   print(f"\n{i}: {gs}")
-          ps = result.phonemes # str
-          # audio = result.audio.cpu().numpy()
-          audio = result.audio
-          tokens = result.tokens # List[en.MToken]
-          timestamps[i]={"text":gs,"words":[]}
-          if Language in ["American English", "British English"]:
-            for t in tokens:
-                # print(t.text, repr(t.whitespace), t.start_ts, t.end_ts)
-                timestamps[i]["words"].append({"word":t.text,"start":t.start_ts,"end":t.end_ts})
-          audio_np = audio.numpy()  # Convert Tensor to NumPy array
-          audio_int16 = (audio_np * 32767).astype(np.int16)  # Scale to 16-bit range
-          audio_bytes = audio_int16.tobytes()  # Convert to bytes
-          # Write the audio chunk to the WAV file
-          duration_sec = len(audio_np) / 24000
-          timestamps[i]["duration"] = duration_sec
-          wav_file.writeframes(audio_bytes)
-    if remove_silence:            
-      keep_silence = int(keep_silence_up_to * 1000)
-      new_wave_file=remove_silence_function(save_path,minimum_silence=keep_silence)
-      return new_wave_file,timestamps
+            ps = result.phonemes # str
+            # audio = result.audio.cpu().numpy()
+            audio = result.audio
+            tokens = result.tokens # List[en.MToken]
+            timestamps[i]={"text":gs,"words":[]}
+            if Language in ["American English", "British English"]:
+                for t in tokens:
+                    # print(t.text, repr(t.whitespace), t.start_ts, t.end_ts)
+                    timestamps[i]["words"].append({"word":t.text,"start":t.start_ts,"end":t.end_ts})
+            audio_np = audio.numpy()  # Convert Tensor to NumPy array
+            audio_int16 = (audio_np * 32767).astype(np.int16)  # Scale to 16-bit range
+            audio_bytes = audio_int16.tobytes()  # Convert to bytes
+            # Write the audio chunk to the WAV file
+            duration_sec = len(audio_np) / 24000
+            timestamps[i]["duration"] = duration_sec
+            wav_file.writeframes(audio_bytes)
+    if remove_silence:        
+        keep_silence = int(keep_silence_up_to * 1000)
+        new_wave_file=remove_silence_function(save_path,minimum_silence=keep_silence)
+        return new_wave_file,timestamps
     return save_path,timestamps
 
 
@@ -286,7 +315,7 @@ def write_word_srt(word_level_timestamps, output_file="word.srt", skip_punctuati
             f.write(f"{index}\n{start_srt} --> {end_srt}\n{word}\n\n")
             index += 1  # Increment subtitle number
 
-import string
+# import string # Already imported
 
 
 def split_line_by_char_limit(text, max_chars=30):
@@ -383,8 +412,8 @@ def write_sentence_srt(word_level_timestamps, output_file="subtitles.srt", max_w
     # print(f"SRT file '{output_file}' created successfully!")
 
 
-import json
-import re
+# import json # Already at top
+# import re # Already at top
 
 def fix_punctuation(text):
     # Remove spaces before punctuation marks (., ?, !, ,)
@@ -487,22 +516,20 @@ def make_json(word_timestamps, json_file_name):
     return json_file_name
 
 
-
-
-import os
+# import os # Already at top
 
 def modify_filename(save_path: str, prefix: str = ""):
     directory, filename = os.path.split(save_path)
     name, ext = os.path.splitext(filename)
     new_filename = f"{prefix}{name}{ext}"
     return os.path.join(directory, new_filename)
-import shutil
+# import shutil # Already at top
 def save_current_data():
     if os.path.exists("./last"):
         shutil.rmtree("./last")
     os.makedirs("./last",exist_ok=True)
     
-     
+      
 def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05):
     if translate_text:    
         text=bulk_translate(text, Language, chunk_size=500)
@@ -525,7 +552,6 @@ def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,t
     return save_path,save_path,None,None,None    
     
     
-
 
 
 def ui():
@@ -557,6 +583,9 @@ def ui():
                     speed = gr.Slider(minimum=0.25, maximum=2, value=1, step=0.1, label='⚡️Speed', info='Adjust the speaking speed')
                     translate_text = gr.Checkbox(value=False, label='🌐 Translate Text to Selected Language')
                     remove_silence = gr.Checkbox(value=False, label='✂️ Remove Silence ')
+                    # ADDED missing keep_silence_up_to slider as it was missing from the user's provided UI code, but used in KOKORO_TTS_API
+                    keep_silence_up_to = gr.Slider(minimum=0.01, maximum=0.5, value=0.05, step=0.01, label='Quiet Gap Size (Seconds)', info='How long of a silence gap to keep when removing silence.')
+                    # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
             with gr.Column():
                 audio = gr.Audio(interactive=False, label='🔊 Output Audio', autoplay=True)
@@ -571,8 +600,20 @@ def ui():
                     srt_file = gr.File(label='📜 Download Sentence-Level SRT')
                     sentence_duration_file = gr.File(label='⏳ Download Sentence Timestamp JSON')
 
-        text.submit(KOKORO_TTS_API, inputs=[text, language_name, voice_name, speed,translate_text, remove_silence], outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
-        generate_btn.click(KOKORO_TTS_API, inputs=[text, language_name, voice_name, speed,translate_text, remove_silence], outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
+        # NOTE: Updated to include keep_silence_up_to in input list to match KOKORO_TTS_API signature
+        inputs_list = [
+            text, 
+            language_name, 
+            voice_name, 
+            speed, 
+            translate_text, 
+            remove_silence, 
+            keep_silence_up_to # ADDED
+        ]
+        
+        # NOTE: Updated to include keep_silence_up_to in input list to match KOKORO_TTS_API signature
+        text.submit(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
+        generate_btn.click(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
 
         # Add examples to the interface
         
@@ -609,26 +650,40 @@ def tutorial():
     return demo2
 
 
+# ====================================================================
+# === 3. Expiration Check Function ADDED ===
+# ====================================================================
+def check_expiration():
+    """Checks if the application date has passed the EXPIRY_DATE."""
+    if date.today() > EXPIRY_DATE:
+        print("\n\n#####################################################")
+        print(f"!!! WARNING: The application expired on {EXPIRY_DATE}. !!!")
+        print("#####################################################\n")
+        return True # Expired
+    return False # Not expired
+# ====================================================================
 
-import click
+
+# import click # Already at top
 @click.command()
 @click.option("--debug", is_flag=True, default=False, help="Enable debug mode.")
 @click.option("--share", is_flag=True, default=False, help="Enable sharing of the interface.")
 def main(debug, share):
-# def main(debug, share):
-# def main(debug, share):
+    
+    # === Expiration Check APPLIED ===
+    if check_expiration():
+        print("Application is expired and will not launch.")
+        return
+    # ================================
+    
     demo1 = ui()
     demo2 = tutorial()
     
     demo = gr.TabbedInterface([demo1, demo2],["Text To Speech","Voice Character Guide"],title="Long Touch Generator 03060914996", css=css_hider)
     
-    demo.queue().launch(debug=debug, share=share, show_api=False)
-    # demo.queue().launch(debug=debug, share=share, server_port=9000)
-    # Run on local network
-    # laptop_ip="192.168.0.30"
-    # port=8080
-    # demo.queue().launch(debug=debug, share=share,server_name=laptop_ip,server_port=port)
-
+    # === Login (auth) Applied ===
+    demo.queue().launch(debug=debug, share=share, show_api=False, auth=custom_auth)
+    # ============================
 
 
 # Initialize default pipeline
@@ -636,4 +691,4 @@ last_used_language = "a"
 pipeline = KPipeline(lang_code=last_used_language)
 temp_folder = create_audio_dir()
 if __name__ == "__main__":
-    main()    
+    main()

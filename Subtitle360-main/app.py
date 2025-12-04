@@ -2,7 +2,7 @@
 # === 1. IP, USERNAME, PASSWORD CONSTANTS ADDED (Start of File) ===
 # ====================================================================
 # Constants for Authentication and IP Restriction
-CLIENT_USERNAME = "demo" # APNI PASAND KA USERNAME RAKHEN
+CLIENT_USERNAME = "user" # APNI PASAND KA USERNAME RAKHEN
 CLIENT_PASSWORD = "123" # APNI PASAND KA PASSWORD RAKHEN
 IP_FILE = "allowed_ip.txt" 
 # ====================================================================

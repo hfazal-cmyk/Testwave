@@ -700,7 +700,7 @@ def ui():
                     language_name = gr.Dropdown(lang_list, label="🌍 Select Language", value=lang_list[0])
 
                 with gr.Row():
-                    voice_name = gr.Dropdown(voice_names, label="🎙️ Choose VoicePack", value='af_heart')#voice_names[0])
+                    voice_name = gr.Dropdown(voice_names, label="🎙️ Choose Character", value='af_heart')#voice_names[0])
 
                 with gr.Row():
                     generate_btn = gr.Button('🚀 Generate', variant='primary')

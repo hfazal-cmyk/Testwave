@@ -608,7 +608,7 @@ def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,t
 
     # === IP/Security Check Start ===
     if not ip_check_username:
-         gr.Warning("Access Denied: Please enter your Username in the 'User Name for IP Lock' box.", duration=7)
+         gr.Warning("Access Denied: Please enter your Username in the 'User Name Enter' box.", duration=7)
          return None, None, None, None, None
 
     if request is None:
@@ -690,7 +690,7 @@ def ui():
                 with gr.Row():
                     # === Input for IP Lock (Must be entered by the user) ===
                     ip_check_username_input = gr.Textbox(
-                        label='🔒 User Name for IP Lock', 
+                        label='🔒 User Name Enter', 
                         placeholder='Enter the same username you used to login (e.g., user1, ali_tts).',
                         info='Security: Your account will be locked to the IP address used for the first successful generation with this username.'
                     )

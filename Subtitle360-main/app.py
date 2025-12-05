@@ -1,42 +1,39 @@
 # ====================================================================
 # === 1. MULTI-USER DICTIONARY, EXPIRY DATE, & IP MAP FILE ADDED ===
 # ====================================================================
-from datetime import date # Expiry check ke liye date import kiya gaya hai
-import json # JSON file ko load/save karne ke liye
+from datetime import date 
+import json 
 
-# NEW: Multiple Users' Credentials with INDIVIDUAL EXPIRY DATES
-# Har user ke liye 'password' aur 'expiry_date' (saal, mahina, din) define karein.
-# Yaad rakhein: date(2025, 1, 31) ka matlab hai 31 January 2025 tak access hai.
+
 AUTHORIZED_USERS = {
     "user1": {
         "password": "pass123", 
-        "expiry_date": date(2025, 12, 31) # December 31, 2025 ko expire
+        "expiry_date": date(2025, 12, 31) 
     },      
     "ali_tts": {
         "password": "ali123", 
-        "expiry_date": date(2024, 12, 1) # December 1, 2024 ko expire
+        "expiry_date": date(2024, 12, 1) 
     },
     "ali_pro": {
         "password": "ali789", 
-        "expiry_date": date(2026, 6, 15) # June 15, 2026 ko expire
+        "expiry_date": date(2026, 6, 15) 
     },
     "guest_04": {
         "password": "gpass",
-        "expiry_date": date(2025, 1, 1) # January 1, 2025 ko expire
+        "expiry_date": date(2025, 1, 1) 
     },
     "admin": {
         "password": "admin@123",
-        "expiry_date": date(2099, 1, 1) # Long-term access
+        "expiry_date": date(2099, 1, 1) 
     },    
-    # Aap yahan aur users add kar sakte hain:
+    
     "client50": {
         "password": "secretpass",
         "expiry_date": date(2025, 3, 31)
     }, 
 }
 
-# Purana global EXPIRY_DATE variable hata diya gaya hai.
-# IP Map file ka naam wohi rahega.
+
 USER_IP_MAP_FILE = "user_ip_map.json"
 # ====================================================================
 

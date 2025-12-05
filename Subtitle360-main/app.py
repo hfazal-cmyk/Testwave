@@ -4,22 +4,39 @@
 from datetime import date # Expiry check ke liye date import kiya gaya hai
 import json # JSON file ko load/save karne ke liye
 
-# NEW: Multiple Users' Credentials (Demo Users)
-# Yahan apne saare 20-50 users ka data 'username': 'password' format mein add karein
+# NEW: Multiple Users' Credentials with INDIVIDUAL EXPIRY DATES
+# Har user ke liye 'password' aur 'expiry_date' (saal, mahina, din) define karein.
+# Yaad rakhein: date(2025, 1, 31) ka matlab hai 31 January 2025 tak access hai.
 AUTHORIZED_USERS = {
-    "user1": "pass123",      
-    "ali_tts": "ali123",
-    "ali_pro": "ali789",
-    "guest_04": "gpass",
-    "admin": "admin@123",    
-    # Aap yahan 50 tak users aur unke passwords add kar sakte hain:
-    "client50": "secretpass", 
+    "user1": {
+        "password": "pass123", 
+        "expiry_date": date(2025, 12, 31) # December 31, 2025 ko expire
+    },      
+    "ali_tts": {
+        "password": "ali123", 
+        "expiry_date": date(2024, 12, 1) # December 1, 2024 ko expire
+    },
+    "ali_pro": {
+        "password": "ali789", 
+        "expiry_date": date(2026, 6, 15) # June 15, 2026 ko expire
+    },
+    "guest_04": {
+        "password": "gpass",
+        "expiry_date": date(2025, 1, 1) # January 1, 2025 ko expire
+    },
+    "admin": {
+        "password": "admin@123",
+        "expiry_date": date(2099, 1, 1) # Long-term access
+    },    
+    # Aap yahan aur users add kar sakte hain:
+    "client50": {
+        "password": "secretpass",
+        "expiry_date": date(2025, 3, 31)
+    }, 
 }
 
-# Set the expiration date: Year, Month, Day (e.g., end of 2025)
-EXPIRY_DATE = date(2025, 12, 31)
-
-# File to store username-IP mapping for security
+# Purana global EXPIRY_DATE variable hata diya gaya hai.
+# IP Map file ka naam wohi rahega.
 USER_IP_MAP_FILE = "user_ip_map.json"
 # ====================================================================
 
@@ -35,7 +52,7 @@ import gradio as gr
 import shutil
 
 # ====================================================================
-# === IP MAP HELPER FUNCTIONS ===
+# === IP MAP HELPER FUNCTIONS (Wohi hain, koi badlaav nahi) ===
 # ====================================================================
 def load_ip_map():
     """Loads the username-IP mapping from the JSON file."""
@@ -59,30 +76,43 @@ def save_ip_map(ip_map):
         return False
 
 # ====================================================================
-# === 2. custom_auth Function Updated (Multi-User Login & Expiry) ===
+# === 2. custom_auth Function Updated (Individual Expiry Check) ===
 # ====================================================================
 def custom_auth(username, password):
     """
     Checks if the provided username and password match any authorized user
-    and verifies the expiry date.
+    and verifies the INDIVIDUAL user's expiry date.
     """
-    # 1. Multi-User Authentication Check
-    if AUTHORIZED_USERS.get(username) == password:
-        # 2. Expiry Date Check
-        if date.today() > EXPIRY_DATE:
-            print(f"Login failed for {username}: Access expired.")
-            return False # Expiry check fail
+    user_data = AUTHORIZED_USERS.get(username)
+    
+    # 1. User Existence Check
+    if user_data is None:
+        print(f"Login failed for {username}: User not found.")
+        return False
+
+    # 2. Password Check
+    if user_data.get("password") == password:
         
+        # 3. INDIVIDUAL Expiry Date Check
+        user_expiry = user_data.get("expiry_date")
+        
+        if user_expiry and date.today() > user_expiry:
+            # Access expired
+            print(f"Login failed for {username}: Access expired on {user_expiry.strftime('%Y-%m-%d')}.")
+            # User ko batane ke liye ki uska access kab tak tha
+            return False 
+        
+        # All checks passed
         print(f"Login successful for user: {username}")
-        # Gradio login screen par IP check nahi hoga, woh KOKORO_TTS_API mein hoga.
-        return True # Both checks passed
+        return True 
         
+    # Credentials mismatch
     print(f"Login failed for {username}: Invalid credentials.")
-    return False # Credentials check fail
+    return False 
 # ====================================================================
 
 
-# === HIDING GITHUB FOOTER & LINKS (Aapki request ke mutabiq) ===
+# === HIDING GITHUB FOOTER & LINKS (Wohi hai) ===
 css_hider = """
 /* Gradio ka footer aur 'Made with Gradio' chhipane ke liye */
 footer { visibility: hidden !important; height: 0px !important; }
@@ -574,14 +604,14 @@ def save_current_data():
     os.makedirs("./last",exist_ok=True)
     
 # ====================================================================
-# === 3. KOKORO_TTS_API Function (IP Lock Logic Implemented) ===
+# === 3. KOKORO_TTS_API Function (IP Lock Logic - Wohi hai) ===
 # ==================================================================== 
 def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05, ip_check_username: str = None, request: gr.Request = None):
     # 'request: gr.Request = None' function signature mein hona hi error fix hai.
 
     # === IP/Security Check Start ===
     if not ip_check_username:
-         gr.Warning("Access Denied: Please enter your Username in the 'User Name Enter' box.", duration=7)
+         gr.Warning("Access Denied: Please enter your Username in the 'User Name for IP Lock' box.", duration=7)
          return None, None, None, None, None
 
     if request is None:
@@ -661,9 +691,9 @@ def ui():
                 text = gr.Textbox(label='📝 Enter Text', lines=3)
                 
                 with gr.Row():
-                    # === New Input for IP Lock (Must be entered by the user) ===
+                    # === Input for IP Lock (Must be entered by the user) ===
                     ip_check_username_input = gr.Textbox(
-                        label='🔒 User Name Enter', 
+                        label='🔒 User Name for IP Lock', 
                         placeholder='Enter the same username you used to login (e.g., user1, ali_tts).',
                         info='Security: Your account will be locked to the IP address used for the first successful generation with this username.'
                     )
@@ -682,7 +712,7 @@ def ui():
                     speed = gr.Slider(minimum=0.25, maximum=2, value=1, step=0.1, label='⚡️Speed', info='Adjust the speaking speed')
                     translate_text = gr.Checkbox(value=False, label='🌐 Translate Text to Selected Language')
                     remove_silence = gr.Checkbox(value=False, label='✂️ Remove Silence ')
-                    # === New UI element for keep_silence_up_to added ===
+                    # === UI element for keep_silence_up_to ===
                     keep_silence_up_to = gr.Slider(minimum=0.01, maximum=0.5, value=0.05, step=0.01, label='Quiet Gap Size (Seconds)', info='How long of a silence gap to keep when removing silence.')
                     # ===================================================
 
@@ -696,7 +726,7 @@ def ui():
                     srt_file = gr.File(label='📜 Download Sentence-Level SRT')
                     sentence_duration_file = gr.File(label='⏳ Download Sentence Timestamp JSON')
 
-        # === 4. UI Bindings Updated to include the new Username input ===
+        # === UI Bindings Updated to include the new Username input (Wohi hai) ===
         inputs_list = [
             text, 
             language_name, 
@@ -705,7 +735,7 @@ def ui():
             translate_text, 
             remove_silence, 
             keep_silence_up_to,
-            ip_check_username_input # NEW: User must input this for IP check
+            ip_check_username_input # User must input this for IP check
         ]
         
         text.submit(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
@@ -766,7 +796,7 @@ def main(debug, share):
         debug=debug, 
         share=share, 
         show_api=False, 
-        auth=custom_auth # custom_auth function ab multi-user login aur expiry check karega
+        auth=custom_auth # custom_auth function ab multi-user login aur INDIVIDUAL expiry check karega
     )
     # ====================================================================
 

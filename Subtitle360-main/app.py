@@ -1,10 +1,26 @@
 # ====================================================================
-# === 1. IP, USERNAME, PASSWORD CONSTANTS ADDED (Start of File) ===
+# === 1. MULTI-USER DICTIONARY, EXPIRY DATE, & IP MAP FILE ADDED ===
 # ====================================================================
-# Constants for Authentication and IP Restriction
-CLIENT_USERNAME = "user" # APNI PASAND KA USERNAME RAKHEN
-CLIENT_PASSWORD = "123" # APNI PASAND KA PASSWORD RAKHEN
-IP_FILE = "allowed_ip.txt" 
+from datetime import date # Expiry check ke liye date import kiya gaya hai
+import json # JSON file ko load/save karne ke liye
+
+# NEW: Multiple Users' Credentials (Demo Users)
+# Yahan apne saare 20-50 users ka data 'username': 'password' format mein add karein
+AUTHORIZED_USERS = {
+    "user1": "pass123",      
+    "ali_tts": "ali123",
+    "ali_pro": "ali789",
+    "guest_04": "gpass",
+    "admin": "admin@123",    
+    # Aap yahan 50 tak users aur unke passwords add kar sakte hain:
+    "client50": "secretpass", 
+}
+
+# Set the expiration date: Year, Month, Day (e.g., end of 2025)
+EXPIRY_DATE = date(2025, 12, 31)
+
+# File to store username-IP mapping for security
+USER_IP_MAP_FILE = "user_ip_map.json"
 # ====================================================================
 
 # Initalize a pipeline
@@ -19,14 +35,50 @@ import gradio as gr
 import shutil
 
 # ====================================================================
-# === 2. Simple custom_auth Function Added (Login Fix) ===
+# === IP MAP HELPER FUNCTIONS ===
+# ====================================================================
+def load_ip_map():
+    """Loads the username-IP mapping from the JSON file."""
+    if os.path.exists(USER_IP_MAP_FILE):
+        try:
+            with open(USER_IP_MAP_FILE, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            # Agar file empty ya corrupt ho, toh nayi dictionary return karein
+            return {}
+    return {}
+
+def save_ip_map(ip_map):
+    """Saves the username-IP mapping to the JSON file."""
+    try:
+        with open(USER_IP_MAP_FILE, 'w') as f:
+            json.dump(ip_map, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving IP map: {e}")
+        return False
+
+# ====================================================================
+# === 2. custom_auth Function Updated (Multi-User Login & Expiry) ===
 # ====================================================================
 def custom_auth(username, password):
     """
-    Gradio ke default auth ke liye, yeh function sirf username aur password leta hai.
-    IP check ab KOKORO_TTS_API function ke andar hoga.
+    Checks if the provided username and password match any authorized user
+    and verifies the expiry date.
     """
-    return username == CLIENT_USERNAME and password == CLIENT_PASSWORD
+    # 1. Multi-User Authentication Check
+    if AUTHORIZED_USERS.get(username) == password:
+        # 2. Expiry Date Check
+        if date.today() > EXPIRY_DATE:
+            print(f"Login failed for {username}: Access expired.")
+            return False # Expiry check fail
+        
+        print(f"Login successful for user: {username}")
+        # Gradio login screen par IP check nahi hoga, woh KOKORO_TTS_API mein hoga.
+        return True # Both checks passed
+        
+    print(f"Login failed for {username}: Invalid credentials.")
+    return False # Credentials check fail
 # ====================================================================
 
 
@@ -168,7 +220,7 @@ def tts_file_name(text,language):
     text = re.sub(r'[^a-zA-Z\s]', '', text)  # Retain only alphabets and spaces
     text = text.lower().strip()              # Convert to lowercase and strip leading/trailing spaces
     text = text.replace(" ", "_")            # Replace spaces with underscores
-    language=language.replace(" ", "_").strip()    
+    language=language.replace(" ", "_").strip() 
     # Truncate or handle empty text
     truncated_text = text[:20] if len(text) > 20 else text if len(text) > 0 else language
     
@@ -217,7 +269,7 @@ def generate_and_save_audio(text, Language="American English",voice="af_bella", 
         wav_file.setframerate(24000)  # Sample rate
         for i, result in enumerate(generator):
             gs = result.graphemes # str
-        #   print(f"\n{i}: {gs}")
+        #    print(f"\n{i}: {gs}")
             ps = result.phonemes # str
             # audio = result.audio.cpu().numpy()
             audio = result.audio
@@ -522,14 +574,16 @@ def save_current_data():
     os.makedirs("./last",exist_ok=True)
     
 # ====================================================================
-# === 3. KOKORO_TTS_API Function (IP Restriction aur Error Fix ke saath) ===
+# === 3. KOKORO_TTS_API Function (IP Lock Logic Implemented) ===
 # ==================================================================== 
-def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05, request: gr.Request = None):
+def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05, ip_check_username: str = None, request: gr.Request = None):
     # 'request: gr.Request = None' function signature mein hona hi error fix hai.
-    
+
     # === IP/Security Check Start ===
-    global IP_FILE 
-    
+    if not ip_check_username:
+         gr.Warning("Access Denied: Please enter your Username in the 'User Name for IP Lock' box.", duration=7)
+         return None, None, None, None, None
+
     if request is None:
         gr.Warning("Error: Could not retrieve client information. Access denied.", duration=5)
         return None, None, None, None, None
@@ -538,40 +592,37 @@ def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,t
     client_ip = request.headers.get("x-forwarded-for", "UNKNOWN")
     if client_ip == "UNKNOWN":
         client_ip = request.client.host if request.client else "UNKNOWN"
-        
+    
     if client_ip == "UNKNOWN":
         gr.Warning("Error: IP address could not be determined. Access denied.", duration=5)
         return None, None, None, None, None
-        
-    allowed_ip = ""
-    # Check IP file
-    if os.path.exists(IP_FILE):
-        try:
-            with open(IP_FILE, "r") as f:
-                allowed_ip = f.read().strip()
-        except Exception:
-            gr.Warning("Error reading IP file. Access denied.", duration=5)
+    
+    # Step 1: Load the IP Map
+    ip_map = load_ip_map()
+    username = ip_check_username.strip().lower() # Username ko normalize karna
+    
+    if username in ip_map:
+        # Step 2: User ka IP pehle se saved hai
+        allowed_ip = ip_map[username]
+        if client_ip != allowed_ip:
+            # IP mismatch: Access Denied
+            gr.Warning(f"Access Denied for user '{username}': This account is locked to IP {allowed_ip}. Your IP ({client_ip}) is different.", duration=10)
             return None, None, None, None, None
+        else:
+            # IP matched: Allow access
+            gr.Info(f"IP check successful for user '{username}'.", duration=3)
+    else:
+        # Step 3: First time generation for this user. IP save karo.
+        ip_map[username] = client_ip
+        if save_ip_map(ip_map):
+            gr.Info(f"First generation successful for user '{username}'. Your current IP ({client_ip}) is now locked to this account.", duration=7)
+        else:
+            gr.Warning("Warning: Could not save IP lock file. Continuing session, but IP lock may not work.", duration=5)
 
-    if not allowed_ip:
-        # Pehli baar: IP file nahi hai, is IP ko allowed banao
-        try:
-            with open(IP_FILE, "w") as f:
-                f.write(client_ip)
-            gr.Info(f"First generation successful. Your IP ({client_ip}) is now registered for this session.", duration=5)
-        except Exception:
-            gr.Warning("Error writing IP file. Access denied.", duration=5)
-            return None, None, None, None, None
-
-    elif client_ip != allowed_ip:
-        # Saved IP se match nahi hua, access block
-        gr.Warning(f"Access Denied: Tool is already registered to another IP ({allowed_ip}). Your IP is {client_ip}.", duration=10)
-        return None, None, None, None, None
-        
     # === IP/Security Check End ===
     
     # ORIGINAL TTS CODE CONTINUES
-    if translate_text:      
+    if translate_text:        
         text=bulk_translate(text, Language, chunk_size=500)
     save_path,timestamps=generate_and_save_audio(text=text, Language=Language,voice=voice, speed=speed,remove_silence=remove_silence,keep_silence_up_to=keep_silence_up_to)
     if remove_silence==False:
@@ -610,6 +661,15 @@ def ui():
                 text = gr.Textbox(label='📝 Enter Text', lines=3)
                 
                 with gr.Row():
+                    # === New Input for IP Lock (Must be entered by the user) ===
+                    ip_check_username_input = gr.Textbox(
+                        label='🔒 User Name for IP Lock', 
+                        placeholder='Enter the same username you used to login (e.g., user1, ali_tts).',
+                        info='Security: Your account will be locked to the IP address used for the first successful generation with this username.'
+                    )
+                    # ==========================================================
+
+                with gr.Row():
                     language_name = gr.Dropdown(lang_list, label="🌍 Select Language", value=lang_list[0])
 
                 with gr.Row():
@@ -636,8 +696,7 @@ def ui():
                     srt_file = gr.File(label='📜 Download Sentence-Level SRT')
                     sentence_duration_file = gr.File(label='⏳ Download Sentence Timestamp JSON')
 
-        # === 4. UI Bindings Corrected (Fix for AttributeError: 'Request' object has no attribute '_id') ===
-        # Note: 'request' argument ko inputs list mein shamil nahi karna hai.
+        # === 4. UI Bindings Updated to include the new Username input ===
         inputs_list = [
             text, 
             language_name, 
@@ -645,7 +704,8 @@ def ui():
             speed, 
             translate_text, 
             remove_silence, 
-            keep_silence_up_to
+            keep_silence_up_to,
+            ip_check_username_input # NEW: User must input this for IP check
         ]
         
         text.submit(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
@@ -700,13 +760,13 @@ def main(debug, share):
     demo = gr.TabbedInterface([demo1, demo2],["Text To Speech","Voice Character Guide"],title="Long Touch Generator 03060914996", css=css_hider)
     
     # ====================================================================
-    # === 5. Launch Command (IP restriction ke liye custom_auth zaroori hai) ===
+    # === 5. Launch Command (custom_auth multi-user login ke liye) ===
     # ====================================================================
     demo.queue().launch(
         debug=debug, 
         share=share, 
         show_api=False, 
-        auth=custom_auth # custom_auth function use ho raha hai login ke liye
+        auth=custom_auth # custom_auth function ab multi-user login aur expiry check karega
     )
     # ====================================================================
 

@@ -12,7 +12,7 @@ AUTHORIZED_USERS = {
     },      
     "ali_tts": {
         "password": "ali123", 
-        "expiry_date": date(2024, 12, 1) 
+        "expiry_date": date(2025, 12, 12) 
     },
     "ali_pro": {
         "password": "ali789", 

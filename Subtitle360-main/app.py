@@ -8,7 +8,7 @@ import json
 AUTHORIZED_USERS = {
     "Raza": {
         "password": "pass123", 
-        "expiry_date": date(2026, 01, 07) 
+        "expiry_date": date(2025, 12, 31) 
     },      
     "ali_tts": {
         "password": "ali123", 

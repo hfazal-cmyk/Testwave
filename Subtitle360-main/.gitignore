@@ -1,0 +1,28 @@
+# Audio files
+kokoro_audio/
+last/
+*.wav
+*.mp3
+*.srt
+*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

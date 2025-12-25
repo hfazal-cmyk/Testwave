@@ -115,25 +115,44 @@ css_hider = """
 footer { visibility: hidden !important; height: 0px !important; }
 /* Container ki height adjust karne ke liye */
 .gradio-container { min-height: 0px !important; }
+/* Small file box for better UI */
+.small-file-box { 
+    height: 75px !important; 
+    min-height: 75px !important; 
+    overflow: hidden !important; 
+    border: 1px solid #ddd !important; 
+    margin-top: 5px !important;
+}
 """
 # =============================================================
+
+# ====================================================================
+# === NEW: VOICE GROUPING AND TRANSLATION CODES (HuggingFace se) ===
+# ====================================================================
+VOICE_GROUPS = {
+    "af": "American Female", "am": "American Male",
+    "bf": "British Female", "bm": "British Male",
+    "hf": "Hindi Female", "hm": "Hindi Male",
+    "ef": "Spanish Female", "em": "Spanish Male",
+    "ff": "French Female", "if": "Italian Female",
+    "pf": "Portuguese Female", "jf": "Japanese Female",
+    "zf": "Chinese Female"
+}
+
+TRANS_CODES = {
+    "American English": "en", "British English": "en", "Hindi": "hi",
+    "Spanish": "es", "French": "fr", "Italian": "it",
+    "Brazilian Portuguese": "pt", "Japanese": "ja", "Mandarin Chinese": "zh-CN"
+}
+# ====================================================================
 
 #translate langauge 
 from deep_translator import GoogleTranslator
 def bulk_translate(text, target_language, chunk_size=500):
-    language_map_local = {
-    "American English": "en",  
-    "British English": "en",  
-    "Hindi": "hi",
-    "Spanish": "es",
-    "French": "fr",
-    "Italian": "it",
-    "Brazilian Portuguese": "pt",
-    "Japanese": "ja",
-    "Mandarin Chinese": "zh-CN"
-    }
-    # lang_code = GoogleTranslator().get_supported_languages(as_dict=True).get(target_language.lower())
-    lang_code=language_map_local[target_language]
+    """Translate text to target language using Google Translator."""
+    # Use TRANS_CODES dictionary for language codes
+    lang_code = TRANS_CODES.get(target_language, "en")
+    
     sentences = re.split(r'(?<=[.!?])\s+', text)  # Split text into sentences
     chunks = []
     current_chunk = ""
@@ -149,9 +168,9 @@ def bulk_translate(text, target_language, chunk_size=500):
         chunks.append(current_chunk.strip())
 
     translated_chunks = [GoogleTranslator(target=lang_code).translate(chunk) for chunk in chunks]
-    result=" ".join(translated_chunks)
+    result = " ".join(translated_chunks)
     return result.strip()
-    
+
 # Language mapping dictionary
 language_map = {
     "American English": "a",
@@ -165,7 +184,6 @@ language_map = {
     "Mandarin Chinese": "z"
 }
 
-
 def update_pipeline(Language):
     """ Updates the pipeline only if the language has changed. """
     global pipeline, last_used_language
@@ -174,22 +192,38 @@ def update_pipeline(Language):
 
     # Only update if the language is different
     if new_lang != last_used_language:
-        pipeline = KPipeline(lang_code=new_lang)
-        last_used_language = new_lang 
         try:
             pipeline = KPipeline(lang_code=new_lang)
-            last_used_language = new_lang  # Update last used language
+            last_used_language = new_lang
         except Exception as e:
-            gr.Warning(f"Make sure the input text is in {Language}",duration=10)
-            gr.Warning(f"Fallback to English Language",duration=5)
+            gr.Warning(f"Make sure the input text is in {Language}", duration=10)
+            gr.Warning(f"Fallback to English Language", duration=5)
             pipeline = KPipeline(lang_code="a")  # Fallback to English
             last_used_language = "a"
-
-
 
 def get_voice_names(repo_id):
     """Fetches and returns a list of voice names (without extensions) from the given Hugging Face repository."""
     return [os.path.splitext(file.replace("voices/", ""))[0] for file in list_repo_files(repo_id) if file.startswith("voices/")]
+
+# ====================================================================
+# === NEW: get_readable_voices() FUNCTION (HuggingFace se) ===
+# ====================================================================
+def get_readable_voices():
+    """Returns voices with human-readable names."""
+    raw = [os.path.splitext(f.replace("voices/", ""))[0] 
+           for f in list_repo_files("hexgrad/Kokoro-82M") 
+           if f.startswith("voices/")]
+    
+    choices = []
+    for v in raw:
+        prefix = v[:2]
+        name = v[3:].capitalize() if len(v) > 2 else v
+        desc = VOICE_GROUPS.get(prefix, prefix.upper())
+        # Format: "American Female Bella" -> "af_bella"
+        choices.append((f"{desc} {name}", v))
+    
+    return sorted(choices)
+# ====================================================================
 
 def create_audio_dir():
     """Creates the 'kokoro_audio' directory in the root folder if it doesn't exist."""
@@ -211,7 +245,7 @@ def clean_text(text):
         "–": " ",  # Replace en-dash with space
         "-": " ",  # Replace hyphen with space
         "**": " ", # Replace double asterisks with space
-        "*": " ",  # Replace single asterisk with space
+        "*": " ",  # Replace single asterisks with space
         "#": " ",  # Replace hash with space
     }
 
@@ -241,13 +275,13 @@ def clean_text(text):
 
     return text
 
-def tts_file_name(text,language):
+def tts_file_name(text, language):
     global temp_folder
     # Remove all non-alphabetic characters and convert to lowercase
     text = re.sub(r'[^a-zA-Z\s]', '', text)  # Retain only alphabets and spaces
     text = text.lower().strip()              # Convert to lowercase and strip leading/trailing spaces
     text = text.replace(" ", "_")            # Replace spaces with underscores
-    language=language.replace(" ", "_").strip() 
+    language = language.replace(" ", "_").strip() 
     # Truncate or handle empty text
     truncated_text = text[:20] if len(text) > 20 else text if len(text) > 0 else language
     
@@ -265,7 +299,7 @@ import wave
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 
-def remove_silence_function(file_path,minimum_silence=50):
+def remove_silence_function(file_path, minimum_silence=50):
     # Extract file name and format from the provided path
     output_path = file_path.replace(".wav", "_no_silence.wav")
     audio_format = "wav"
@@ -282,13 +316,14 @@ def remove_silence_function(file_path,minimum_silence=50):
     combined.export(output_path, format=audio_format)
     return output_path
 
-def generate_and_save_audio(text, Language="American English",voice="af_bella", speed=1,remove_silence=False,keep_silence_up_to=0.05):
-    text=clean_text(text)
+def generate_and_save_audio(text, Language="American English", voice="af_bella", speed=1, remove_silence=False, keep_silence_up_to=0.05):
+    text = clean_text(text)
     update_pipeline(Language)
     generator = pipeline(text, voice=voice, speed=speed, split_pattern=r'\n+')
-    save_path=tts_file_name(text,Language)
+    save_path = tts_file_name(text, Language)
+    
     # Open the WAV file for writing
-    timestamps={}
+    timestamps = {}
     with wave.open(save_path, 'wb') as wav_file:
         # Set the WAV file parameters
         wav_file.setnchannels(1)  # Mono audio
@@ -296,16 +331,13 @@ def generate_and_save_audio(text, Language="American English",voice="af_bella", 
         wav_file.setframerate(24000)  # Sample rate
         for i, result in enumerate(generator):
             gs = result.graphemes # str
-        #    print(f"\n{i}: {gs}")
             ps = result.phonemes # str
-            # audio = result.audio.cpu().numpy()
             audio = result.audio
             tokens = result.tokens # List[en.MToken]
-            timestamps[i]={"text":gs,"words":[]}
+            timestamps[i] = {"text": gs, "words": []}
             if Language in ["American English", "British English"]:
                 for t in tokens:
-                    # print(t.text, repr(t.whitespace), t.start_ts, t.end_ts)
-                    timestamps[i]["words"].append({"word":t.text,"start":t.start_ts,"end":t.end_ts})
+                    timestamps[i]["words"].append({"word": t.text, "start": t.start_ts, "end": t.end_ts})
             audio_np = audio.numpy()  # Convert Tensor to NumPy array
             audio_int16 = (audio_np * 32767).astype(np.int16)  # Scale to 16-bit range
             audio_bytes = audio_int16.tobytes()  # Convert to bytes
@@ -313,13 +345,13 @@ def generate_and_save_audio(text, Language="American English",voice="af_bella", 
             duration_sec = len(audio_np) / 24000
             timestamps[i]["duration"] = duration_sec
             wav_file.writeframes(audio_bytes)
+    
     if remove_silence:        
         keep_silence = int(keep_silence_up_to * 1000)
-        new_wave_file=remove_silence_function(save_path,minimum_silence=keep_silence)
-        return new_wave_file,timestamps
-    return save_path,timestamps
-
-
+        new_wave_file = remove_silence_function(save_path, minimum_silence=keep_silence)
+        return new_wave_file, timestamps
+    
+    return save_path, timestamps
 
 def adjust_timestamps(timestamp_dict):
     adjusted_timestamps = []
@@ -355,8 +387,6 @@ def adjust_timestamps(timestamp_dict):
 
     return adjusted_timestamps
 
-
-
 import string
 
 def write_word_srt(word_level_timestamps, output_file="word.srt", skip_punctuation=True):
@@ -388,9 +418,6 @@ def write_word_srt(word_level_timestamps, output_file="word.srt", skip_punctuati
             f.write(f"{index}\n{start_srt} --> {end_srt}\n{word}\n\n")
             index += 1  # Increment subtitle number
 
-import string
-
-
 def split_line_by_char_limit(text, max_chars=30):
     words = text.split()
     lines = []
@@ -413,13 +440,12 @@ def split_line_by_char_limit(text, max_chars=30):
 
     return "\n".join(lines)
 
-
 def write_sentence_srt(word_level_timestamps, output_file="subtitles.srt", max_words=8, min_pause=0.1):
     subtitles = []  # Stores subtitle blocks
     subtitle_words = []  # Temporary list for words in the current subtitle
     start_time = None  # Tracks start time of current subtitle
 
-    remove_punctuation = ['"',"—"]  # Add punctuations to remove if needed
+    remove_punctuation = ['"', "—"]  # Add punctuations to remove if needed
 
     for i, entry in enumerate(word_level_timestamps):
         word = entry["word"]
@@ -479,11 +505,8 @@ def write_sentence_srt(word_level_timestamps, output_file="subtitles.srt", max_w
     # Write subtitles to SRT file
     with open(output_file, "w", encoding="utf-8") as f:
         for i, (start, end, text) in enumerate(subtitles, start=1):
-            text=split_line_by_char_limit(text, max_chars=30)
+            text = split_line_by_char_limit(text, max_chars=30)
             f.write(f"{i}\n{format_srt_time(start)} --> {format_srt_time(end)}\n{text}\n\n")
-
-    # print(f"SRT file '{output_file}' created successfully!")
-
 
 import json
 import re
@@ -510,10 +533,8 @@ def fix_punctuation(text):
                 result.append(' ')
         else:
             result.append(char)
-    text=''.join(result)
+    text = ''.join(result)
     return text.strip()
-
-
 
 def make_json(word_timestamps, json_file_name):
     data = {}
@@ -588,7 +609,6 @@ def make_json(word_timestamps, json_file_name):
         json.dump(data, json_file, indent=4)
     return json_file_name
 
-
 def modify_filename(save_path: str, prefix: str = ""):
     directory, filename = os.path.split(save_path)
     name, ext = os.path.splitext(filename)
@@ -598,22 +618,25 @@ def modify_filename(save_path: str, prefix: str = ""):
 def save_current_data():
     if os.path.exists("./last"):
         shutil.rmtree("./last")
-    os.makedirs("./last",exist_ok=True)
+    os.makedirs("./last", exist_ok=True)
     
 # ====================================================================
-# === 3. KOKORO_TTS_API Function (IP Lock Logic - Wohi hai) ===
+# === 3. KOKORO_TTS_API Function (Updated with Progress Bar) ===
 # ==================================================================== 
-def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,translate_text=False,remove_silence=False,keep_silence_up_to=0.05, ip_check_username: str = None, request: gr.Request = None):
-    # 'request: gr.Request = None' function signature mein hona hi error fix hai.
-
+def KOKORO_TTS_API(text, Language="American English", voice="af_bella", speed=1, translate_text=False, 
+                   remove_silence=False, keep_silence_up_to=0.05, ip_check_username: str = None, 
+                   request: gr.Request = None, progress=gr.Progress()):
+    """
+    Main TTS function with progress bar and all HuggingFace features.
+    """
     # === IP/Security Check Start ===
     if not ip_check_username:
-         gr.Warning("Access Denied: Please enter your Username in the 'User Name Enter' box.", duration=7)
-         return None, None, None, None, None
+        gr.Warning("Access Denied: Please enter your Username in the 'User Name Enter' box.", duration=7)
+        return None, None, None, None, None, "⚠️ Username Enter Karein!"
 
     if request is None:
         gr.Warning("Error: Could not retrieve client information. Access denied.", duration=5)
-        return None, None, None, None, None
+        return None, None, None, None, None, "⚠️ Client info missing"
 
     # IP address ko mazbooti se hasil karna
     client_ip = request.headers.get("x-forwarded-for", "UNKNOWN")
@@ -622,19 +645,20 @@ def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,t
     
     if client_ip == "UNKNOWN":
         gr.Warning("Error: IP address could not be determined. Access denied.", duration=5)
-        return None, None, None, None, None
-    
+        return None, None, None, None, None, "⚠️ IP address missing"
+
     # Step 1: Load the IP Map
     ip_map = load_ip_map()
-    username = ip_check_username.strip().lower() # Username ko normalize karna
+    username = ip_check_username.strip().lower()  # Username ko normalize karna
     
     if username in ip_map:
         # Step 2: User ka IP pehle se saved hai
         allowed_ip = ip_map[username]
         if client_ip != allowed_ip:
             # IP mismatch: Access Denied
-            gr.Warning(f"Access Denied for user '{username}': This account is locked to IP {allowed_ip}. Your IP ({client_ip}) is different.", duration=10)
-            return None, None, None, None, None
+            error_msg = f"Access Denied for user '{username}': This account is locked to IP {allowed_ip}. Your IP ({client_ip}) is different."
+            gr.Warning(error_msg, duration=10)
+            return None, None, None, None, None, f"⚠️ {error_msg}"
         else:
             # IP matched: Allow access
             gr.Info(f"IP check successful for user '{username}'.", duration=3)
@@ -648,160 +672,171 @@ def KOKORO_TTS_API(text, Language="American English",voice="af_bella", speed=1,t
 
     # === IP/Security Check End ===
     
-    # ORIGINAL TTS CODE CONTINUES
-    if translate_text:        
-        text=bulk_translate(text, Language, chunk_size=500)
-    save_path,timestamps=generate_and_save_audio(text=text, Language=Language,voice=voice, speed=speed,remove_silence=remove_silence,keep_silence_up_to=keep_silence_up_to)
-    if remove_silence==False:
-        if Language in ["American English", "British English"]:
-            word_level_timestamps=adjust_timestamps(timestamps)
-            word_level_srt = modify_filename(save_path.replace(".wav", ".srt"), prefix="word_level_")
-            normal_srt = modify_filename(save_path.replace(".wav", ".srt"), prefix="sentence_")
-            json_file = modify_filename(save_path.replace(".wav", ".json"), prefix="duration_")
-            write_word_srt(word_level_timestamps, output_file=word_level_srt, skip_punctuation=True)
-            write_sentence_srt(word_level_timestamps, output_file=normal_srt, min_pause=0.01)
-            make_json(word_level_timestamps, json_file)
-            save_current_data()
-            shutil.copy(save_path, "./last/")
-            shutil.copy(word_level_srt, "./last/")
-            shutil.copy(normal_srt, "./last/")
-            shutil.copy(json_file, "./last/")
-            return save_path,save_path,word_level_srt,normal_srt,json_file
-    return save_path,save_path,None,None,None
-# ==================================================================== 
+    # Update progress
+    progress(0.1, desc="Preparing text...")
     
+    # Translation if needed
+    if translate_text:
+        progress(0.2, desc=f"Translating to {Language}...")
+        text = bulk_translate(text, Language, chunk_size=500)
+    
+    # Generate audio with progress updates
+    progress(0.3, desc=f"Generating {Language} audio...")
+    save_path, timestamps = generate_and_save_audio(
+        text=text, 
+        Language=Language, 
+        voice=voice, 
+        speed=speed, 
+        remove_silence=remove_silence, 
+        keep_silence_up_to=keep_silence_up_to
+    )
+    
+    # Create SRT and JSON files
+    if not remove_silence and Language in ["American English", "British English"]:
+        progress(0.6, desc="Creating subtitles...")
+        word_level_timestamps = adjust_timestamps(timestamps)
+        
+        word_level_srt = modify_filename(save_path.replace(".wav", ".srt"), prefix="word_level_")
+        normal_srt = modify_filename(save_path.replace(".wav", ".srt"), prefix="sentence_")
+        json_file = modify_filename(save_path.replace(".wav", ".json"), prefix="duration_")
+        
+        write_word_srt(word_level_timestamps, output_file=word_level_srt, skip_punctuation=True)
+        write_sentence_srt(word_level_timestamps, output_file=normal_srt, min_pause=0.01)
+        make_json(word_level_timestamps, json_file)
+        
+        progress(0.8, desc="Saving files...")
+        save_current_data()
+        shutil.copy(save_path, "./last/")
+        shutil.copy(word_level_srt, "./last/")
+        shutil.copy(normal_srt, "./last/")
+        shutil.copy(json_file, "./last/")
+        
+        progress(1.0, desc="Complete!")
+        return save_path, save_path, word_level_srt, normal_srt, json_file, f"✅ Success! User: {username}"
+    
+    progress(1.0, desc="Complete!")
+    return save_path, save_path, None, None, None, f"✅ Success! User: {username}"
+# ====================================================================
 
 def ui():
     def toggle_autoplay(autoplay):
         return gr.Audio(interactive=False, label='Output Audio', autoplay=autoplay)
 
+    def load_text_from_file(file):
+        """Load text from uploaded file."""
+        if file is not None:
+            try:
+                with open(file.name, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except:
+                return "Error reading file"
+        return ""
+
+    # Get voice choices with readable names
+    voice_choices = get_readable_voices()
     
-    
-    with gr.Blocks() as demo:
-        # gr.Markdown("<center><h1 style='font-size: 40px;'>KOKORO TTS</h1></center>")  # Title
-        # GitHub/Install Link yahan se hata diya gaya hai
-        lang_list = ['American English', 'British English', 'Hindi', 'Spanish', 'French', 'Italian', 'Brazilian Portuguese', 'Japanese', 'Mandarin Chinese']
-        voice_names = get_voice_names("hexgrad/Kokoro-82M")
-
-        with gr.Row():
-            with gr.Column():
-                text = gr.Textbox(label='📝 Enter Text', lines=3)
-                
-                with gr.Row():
-                    # === Input for IP Lock (Must be entered by the user) ===
-                    ip_check_username_input = gr.Textbox(
-                        label='🔒 User Name Enter', 
-                        placeholder='Enter the same username you used to login (e.g., user1, ali_tts).',
-                        info='Security: Your account will be locked to the IP address used for the first successful generation with this username.'
-                    )
-                    # ==========================================================
-
-                with gr.Row():
-                    language_name = gr.Dropdown(lang_list, label="🌍 Select Language", value=lang_list[0])
-
-                with gr.Row():
-                    voice_name = gr.Dropdown(voice_names, label="🎙️ Choose Character", value='af_heart')#voice_names[0])
-
-                with gr.Row():
-                    generate_btn = gr.Button('🚀 Generate', variant='primary')
-
-                with gr.Accordion('🎛️ Audio Settings', open=False):
-                    speed = gr.Slider(minimum=0.25, maximum=2, value=1, step=0.1, label='⚡️Speed', info='Adjust the speaking speed')
-                    translate_text = gr.Checkbox(value=False, label='🌐 Translate Text to Selected Language')
-                    remove_silence = gr.Checkbox(value=False, label='✂️ Remove Silence ')
-                    # === UI element for keep_silence_up_to ===
-                    keep_silence_up_to = gr.Slider(minimum=0.01, maximum=0.5, value=0.05, step=0.01, label='Quiet Gap Size (Seconds)', info='How long of a silence gap to keep when removing silence.')
-                    # ===================================================
-
-            with gr.Column():
-                audio = gr.Audio(interactive=False, label='🔊 Output Audio', autoplay=True)
-                audio_file = gr.File(label='📥 Download Audio')
-                with gr.Accordion('🎬 Autoplay, Subtitle, Timestamp', open=False):
-                    autoplay = gr.Checkbox(value=True, label='▶️ Autoplay')
-                    autoplay.change(toggle_autoplay, inputs=[autoplay], outputs=[audio])
-                    word_level_srt_file = gr.File(label='📝 Download Word-Level SRT')
-                    srt_file = gr.File(label='📜 Download Sentence-Level SRT')
-                    sentence_duration_file = gr.File(label='⏳ Download Sentence Timestamp JSON')
-
-        # === UI Bindings Updated to include the new Username input (Wohi hai) ===
-        inputs_list = [
-            text, 
-            language_name, 
-            voice_name, 
-            speed, 
-            translate_text, 
-            remove_silence, 
-            keep_silence_up_to,
-            ip_check_username_input # User must input this for IP check
-        ]
+    with gr.Blocks(title="Long Touch Generator 03060914996", css=css_hider) as demo:
+        gr.Markdown("# 🎙️ Long Touch Generator 03060914996")
         
-        text.submit(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
-        generate_btn.click(KOKORO_TTS_API, inputs=inputs_list, outputs=[audio, audio_file,word_level_srt_file,srt_file,sentence_duration_file])
-        # =====================================================================
+        with gr.Tabs():
+            with gr.TabItem("Text To Speech"):
+                with gr.Row():
+                    with gr.Column():
+                        # File upload section
+                        with gr.Accordion("📄 Upload Script File (.txt)", open=False):
+                            file_input = gr.File(label="Select File", file_types=[".txt"], type="filepath")
+                        
+                        # Main text input
+                        text_input = gr.Textbox(
+                            label='📝 Enter Text', 
+                            lines=8, 
+                            placeholder='Write or paste your script here...',
+                            info='You can type directly or upload a .txt file above'
+                        )
+                        
+                        # Update text when file is uploaded
+                        file_input.change(
+                            fn=load_text_from_file,
+                            inputs=[file_input],
+                            outputs=[text_input]
+                        )
+                        
+                        # Security input
+                        ip_check_username_input = gr.Textbox(
+                            label='🔒 User Name Enter', 
+                            placeholder='Enter the same username you used to login (e.g., user1, ali_tts).',
+                            info='Security: Your account will be locked to the IP address used for the first successful generation.'
+                        )
 
-        # Add examples to the interface
-        
+                        # Language and voice selection
+                        with gr.Row():
+                            language_name = gr.Dropdown(
+                                list(language_map.keys()), 
+                                label="🌍 Select Language", 
+                                value="American English",
+                                info="9 supported languages"
+                            )
+                            
+                            voice_name = gr.Dropdown(
+                                choices=voice_choices,
+                                label="🎙️ Choose Character", 
+                                value="af_heart",
+                                info="50+ voices available"
+                            )
 
-    return demo
+                        # Generate button
+                        generate_btn = gr.Button('🚀 Generate Audio', variant='primary', size="lg")
 
-def tutorial():
-    # Markdown explanation for language code
-    explanation = """
-    ## Language Code Explanation:
-    Example: `'af_bella'` 
-    - **'a'** stands for **American English**.
-    - **'f_'** stands for **Female** (If it were 'm_', it would mean Male).
-    - **'bella'** refers to the specific voice.
+                        # Audio settings
+                        with gr.Accordion('🎛️ Audio Settings', open=False):
+                            speed = gr.Slider(
+                                minimum=0.25, 
+                                maximum=2, 
+                                value=1, 
+                                step=0.1, 
+                                label='⚡️ Speed',
+                                info='Adjust the speaking speed'
+                            )
+                            translate_text = gr.Checkbox(
+                                value=False, 
+                                label='🌐 Translate Text to Selected Language'
+                            )
+                            remove_silence = gr.Checkbox(
+                                value=False, 
+                                label='✂️ Remove Silence'
+                            )
+                            keep_silence_up_to = gr.Slider(
+                                minimum=0.01, 
+                                maximum=0.5, 
+                                value=0.05, 
+                                step=0.01, 
+                                label='Quiet Gap Size (Seconds)',
+                                info='How long of a silence gap to keep when removing silence.'
+                            )
+                            autoplay = gr.Checkbox(
+                                value=True, 
+                                label='▶️ Autoplay Audio'
+                            )
 
-    The first character in the voice code stands for the language:
-    - **"a"**: American English
-    - **"b"**: British English
-    - **"h"**: Hindi
-    - **"e"**: Spanish
-    - **"f"**: French
-    - **"i"**: Italian
-    - **"p"**: Brazilian Portuguese
-    - **"j"**: Japanese
-    - **"z"**: Mandarin Chinese
-
-    The second character stands for gender:
-    - **"f_"**: Female
-    - **"m_"**: Male
-    """
-    with gr.Blocks() as demo2:
-        # gr.Markdown("[Install on Your Local System](https://github.com/NeuralFalconYT/kokoro_v1)") # Link yahan se bhi hata diya gaya hai
-        gr.Markdown(explanation)  # Display the explanation
-    return demo2
-
-
-
-import click
-@click.command()
-@click.option("--debug", is_flag=True, default=False, help="Enable debug mode.")
-@click.option("--share", is_flag=True, default=False, help="Enable sharing of the interface.")
-def main(debug, share):
-    demo1 = ui()
-    demo2 = tutorial()
-    
-    # CSS HIDER lagaya gaya hai takay footer aur links chhip jaaein
-    demo = gr.TabbedInterface([demo1, demo2],["Text To Speech","Voice Character Guide"],title="Long Touch Generator 03060914996", css=css_hider)
-    
-    # ====================================================================
-    # === 5. Launch Command (custom_auth multi-user login ke liye) ===
-    # ====================================================================
-    demo.queue().launch(
-        debug=debug, 
-        share=share, 
-        show_api=False, 
-        auth=custom_auth # custom_auth function ab multi-user login aur INDIVIDUAL expiry check karega
-    )
-    # ====================================================================
-
-
-
-# Initialize default pipeline
-last_used_language = "a"
-pipeline = KPipeline(lang_code=last_used_language)
-temp_folder = create_audio_dir()
-if __name__ == "__main__":
-    main()
+                    with gr.Column():
+                        # Audio output
+                        audio_output = gr.Audio(
+                            interactive=False, 
+                            label='🔊 Output Audio', 
+                            autoplay=True
+                        )
+                        
+                        # Status message
+                        status_box = gr.Textbox(
+                            label="📡 Status",
+                            interactive=False,
+                            placeholder="Status will appear here..."
+                        )
+                        
+                        # File downloads
+                        audio_file_download = gr.File(
+                            label='📥 Download Audio',
+                            elem_classes="small-file-box"
+                        )
+                        
+                        with gr.Acc

@@ -813,7 +813,7 @@ def ui():
                                 label='Quiet Gap Size (Seconds)',
                                 info='How long of a silence gap to keep when removing silence.'
                             )
-                            autoplay = gr.Checkbox(
+                            autoplay_checkbox = gr.Checkbox(
                                 value=True, 
                                 label='▶️ Autoplay Audio'
                             )
@@ -839,4 +839,48 @@ def ui():
                             elem_classes="small-file-box"
                         )
                         
-                        with gr.Acc
+                        with gr.Accordion('📁 Additional Files', open=False):
+                            word_level_srt_file = gr.File(
+                                label='📝 Word-Level SRT',
+                                elem_classes="small-file-box"
+                            )
+                            sentence_srt_file = gr.File(
+                                label='📜 Sentence-Level SRT',
+                                elem_classes="small-file-box"
+                            )
+                            json_file_download = gr.File(
+                                label='⏳ Sentence Timestamp JSON',
+                                elem_classes="small-file-box"
+                            )
+                        
+                        # Autoplay toggle
+                        autoplay_checkbox.change(
+                            fn=toggle_autoplay,
+                            inputs=[autoplay_checkbox],
+                            outputs=[audio_output]
+                        )
+
+                # Connect generate button
+                inputs_list = [
+                    text_input, 
+                    language_name, 
+                    voice_name, 
+                    speed, 
+                    translate_text, 
+                    remove_silence, 
+                    keep_silence_up_to,
+                    ip_check_username_input
+                ]
+                
+                outputs_list = [
+                    audio_output, 
+                    audio_file_download,
+                    word_level_srt_file,
+                    sentence_srt_file,
+                    json_file_download,
+                    status_box
+                ]
+                
+                text_input.submit(
+                    KOKORO_TTS_API, 
+                    inputs
